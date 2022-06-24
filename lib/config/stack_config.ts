@@ -32,7 +32,7 @@ export interface IStackConfig {
     readonly region: string;
 }
 
-export const DEFAULT_STACK_ACCOUNT = "YOUR_ACCOUNT_ID_HERE";
+export const DEFAULT_STACK_ACCOUNT = "YOUR_ACCOUNT_HERE";
 export const DEFAULT_STACK_REGION = "us-west-2";
 export const BETA_STACK_REGION = "us-east-1";
 
