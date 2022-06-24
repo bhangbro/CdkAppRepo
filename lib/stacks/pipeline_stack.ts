@@ -1,12 +1,16 @@
 import { Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { CdkPipeline, SimpleSynthAction } from 'aws-cdk-lib/pipelines';
+// import { CdkPipeline, SimpleSynthAction } from 'aws-cdk-lib/pipelines';
 import * as codecommit from 'aws-cdk-lib/aws-codecommit';
 import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
 import * as codepipeline_actions from 'aws-cdk-lib/aws-codepipeline-actions';
 import { STACK_CONFIGS } from '../config/stack_config';
-import { CODE_COMMIT_REPO_NAME } from '../constants';
+import { APP_NAME, CODE_COMMIT_DEPLOY_BRANCH_NAME, CODE_COMMIT_REPO_NAME } from '../constants';
 import { PipelineAppStage } from '../stages/pipeline_app_stage';
+import { CodeBuildStep, CodePipeline, CodePipelineSource, ManualApprovalStep } from 'aws-cdk-lib/pipelines';
+import { Artifact } from 'aws-cdk-lib/aws-codepipeline';
+import { SourceStage } from '../stages/source_stage';
+import { CodeBuildStage } from '../stages/code_build_stage';
 
 export class PipelineStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -17,31 +21,37 @@ export class PipelineStack extends Stack {
       repositoryName: CODE_COMMIT_REPO_NAME
     });
 
-    // Defines the artifact representing the sourcecode
-    const sourceArtifact = new codepipeline.Artifact();
-    // Defines the artifact representing the cloud assembly 
-    // (cloudformation template + all other assets)
-    const cloudAssemblyArtifact = new codepipeline.Artifact();
-
     // The basic pipeline declaration. This sets the initial structure
     // of our pipeline
-    const pipeline = new CdkPipeline(this, 'AppPipeline', {
-      pipelineName: 'AppPipeline',
-      cloudAssemblyArtifact,
-      // Generates the source artifact from the repo we created in the last step
-      sourceAction: new codepipeline_actions.CodeCommitSourceAction({
-        actionName: 'CodeCommit', // Any Git-based source control
-        output: sourceArtifact, // Indicates where the artifact is stored
-        repository: appRepo // Designates the repo to draw code from
-      }),
-      // Builds our source code outlined above into a could assembly artifact
-      synthAction: SimpleSynthAction.standardNpmSynth({
-        sourceArtifact, // Where to get source code to build
-        cloudAssemblyArtifact, // Where to place built source
-        buildCommand: 'npm run build' // Language-specific build cmd
+    const pipeline = new CodePipeline(this, `${APP_NAME}ApiPipeline`, {
+      pipelineName: `${APP_NAME}ApiPipeline`,
+      synth: new CodeBuildStep('Synth', {
+        input: CodePipelineSource.codeCommit(appRepo, CODE_COMMIT_DEPLOY_BRANCH_NAME),
+        installCommands: [
+            'npm install -g aws-cdk'
+        ],
+        commands: [
+          'npm ci', 
+          'npm run build',
+          'npx cdk synth'
+        ]
       })
     });
 
+    // Source Stage
+    const sourceArtifact = new Artifact();
+    const sourceStage = new SourceStage(scope, "SourceStage", {
+      sourceArtifact: sourceArtifact
+    })
+    pipeline.addStage(sourceStage);
+
+    // Code Build Stage
+    const buildStage = new CodeBuildStage(scope, "CodeBuildStage", {
+      sourceArtifact: sourceArtifact,
+    })
+    pipeline.addStage(buildStage);
+    
+    // App Stages
     for (let index in STACK_CONFIGS) {
       if (index == "0") {
         // First entry is Alpha stage
@@ -50,25 +60,28 @@ export class PipelineStack extends Stack {
             env: {
               account: STACK_CONFIGS[index].account,
               region: STACK_CONFIGS[index].region
-            }
+            },
+            buildArtifact: buildStage.stack.buildArtifact,
+            artifactsBucket: buildStage.stack.artifactsBucket
           }
         );
-        const alphaStage = pipeline.addApplicationStage(alphaEnv);
-        alphaStage.addManualApprovalAction({
-          actionName: "AlphaManualApprovalAction"
-        });
+        const alphaStage = pipeline.addStage(alphaEnv);
+        alphaStage.addPost(new ManualApprovalStep("AlphaManualApprovalStep", {
+          comment: "Alpha Manual Approval Step"
+        }));
       } else if (index == "1") {
         // Second entry is Beta stage
-
         let betaEnv = new PipelineAppStage(this, "BetaEnv",
           {
             env: {
               account: STACK_CONFIGS[index].account,
               region: STACK_CONFIGS[index].region
-            }
+            },
+            buildArtifact: buildStage.stack.buildArtifact,
+            artifactsBucket: buildStage.stack.artifactsBucket
           }
         );
-        const betaStage = pipeline.addApplicationStage(betaEnv);
+        const betaStage = pipeline.addStage(betaEnv);
       } else {
         //// All other entries are production
         //let prodEnv = new PipelineAppStage(this, ["ProdEnv", STACK_CONFIGS[index].account, STACK_CONFIGS[index].region].join("_"),
@@ -79,7 +92,7 @@ export class PipelineStack extends Stack {
         //    }
         //  }
         //);
-        //const prodStage = pipeline.addApplicationStage(prodEnv);
+        //const prodStage = pipeline.addStage(prodEnv);
       }
     }
   }
