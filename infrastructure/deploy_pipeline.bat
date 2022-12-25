@@ -1,3 +1,4 @@
+ECHO THIS IS NOT MAINTAINED
 ECHO Install dependencies from package.json
 CALL npm install
 

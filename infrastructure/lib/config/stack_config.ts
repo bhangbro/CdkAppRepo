@@ -63,7 +63,7 @@ export class AppStackConfig extends StackConfig {
     }
 }
 
-export const DEFAULT_STACK_ACCOUNT = "YOUR_ACCOUNT_HERE";
+export const DEFAULT_STACK_ACCOUNT = "567435782255";
 export const DEFAULT_STACK_REGION = "us-west-2"; // OREGON
 export const ALPHA_STACK_REGION = "us-east-1"; // OHIO
 export const BETA_STACK_REGION = "us-east-2"; // VIRGINIA
