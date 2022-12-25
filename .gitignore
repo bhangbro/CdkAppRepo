@@ -1,6 +1,6 @@
 .vs
 *.js
-!jest.config.js
+!infrastructure/jest.config.js
 *.d.ts
 node_modules
 
