@@ -43,7 +43,7 @@ The AWS Cloud Development Kit is a programatic way to define CloudFormation Reso
 1. Set `BETA_STACK_REGION` to the AWS region to deploy the BETA stage of the pipeline
 	- **MUST BE DIFFERENT THAN VALUE IN `DEFAULT_STACK_REGION` and `ALPHA_STACK_REGION` to avoid duplicate resources**
 	- **us-east-2** set by default
-1. If this is the first time deploying, you need to clear your git remote
+1. If this is the first time deploying, you need to clear your git remote to be able to configure it to the AWS CodeCommit repo
     - run `./clear_git_remote.sh`
 1. Deploy pipeline
     - On Unix machines, run `./deploy_pipeline.sh`
@@ -63,6 +63,7 @@ The AWS Cloud Development Kit is a programatic way to define CloudFormation Reso
 2. `npm install` will install any new dependencies defined in `package.json`
 
 ## Special Files
+* `clear_git_remote.sh` is executable to clear the git repo these files are connected to
 * `deploy_pipeline.sh` is executable to deploy CDK stack(s)
 * `infrastructure/`
   * `bin/cdk_app.ts` Root file of the CDK app initialization
