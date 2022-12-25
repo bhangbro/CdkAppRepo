@@ -11,7 +11,7 @@ cd ../lambda
 ./gradlew clean build --refresh-dependencies --parallel
 
 echo "Go back to base dir"
-cd ../
+cd ../../
 
 echo "Install dependencies from infrastucture/package.json"
 cd infrastructure/
@@ -32,7 +32,7 @@ cdk deploy CdkPipelineStack
 cd ../
 
 echo "Set project origin to CodeCommit in the region of the CodePipeline"
-aws codecommit create-repository --repository-name CdkAppRepo
+# aws codecommit create-repository --repository-name CdkAppRepo
 git remote add origin https://git-codecommit.us-west-2.amazonaws.com/v1/repos/CdkAppRepo
 
 echo "Upload project to CodeCommit Repo"
