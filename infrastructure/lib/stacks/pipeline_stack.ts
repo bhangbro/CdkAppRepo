@@ -23,6 +23,12 @@ export class PipelineStack extends Stack {
 
     // The basic pipeline declaration. This sets the initial structure
     // of our pipeline
+    // The CodePipeline is used to build official versions of you software, and then do things like:
+    //  - publish the library
+    //  - deploy apps to AWS
+    //  - deploy resources to AWS (may cost money)
+    // These are all configurable by editting this code using the AWS Cloud Development Kit (https://docs.aws.amazon.com/cdk/v2/guide/home.html)
+    // Data structures + resources: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-construct-library.html
     const pipeline = new CodePipeline(this, `${APP_NAME}ApiPipeline`, {
       pipelineName: `${APP_NAME}ApiPipeline`,
       synth: new CodeBuildStep('Synth', {
@@ -31,6 +37,15 @@ export class PipelineStack extends Stack {
             'npm install -g aws-cdk'
         ],
         commands: [
+          // Build Kotlin Lambda code
+          'cd software/api-lambda',
+          './gradlew clean build --refresh-dependencies --parallel',
+          // Build NodeJS Lambda code
+          'cd software/api-lambda-js',
+          'npm ci',
+          'npm run build',
+          // Build Typescript CDK
+          'cd ../../infrastructure/',
           'npm ci', 
           'npm run build',
           'npx cdk synth'
@@ -55,6 +70,9 @@ export class PipelineStack extends Stack {
     for (let index in STACK_CONFIGS) {
       if (index == "0") {
         // First entry is Alpha stage
+        // Alpha stage is typically used for internal developer testing (private network).
+        //   In this case, it is on a public network because a private network cost additional to run on AWS
+        // The Alpha stage deploys all the resources defined in PipelineAppStage to the AWS account + region you define in the first STACK_CONFIG
         let alphaEnv = new PipelineAppStage(this, "AlphaEnv",
           {
             env: {
@@ -66,6 +84,8 @@ export class PipelineStack extends Stack {
           }
         );
         const alphaStage = pipeline.addStage(alphaEnv);
+      
+
         alphaStage.addPost(new ManualApprovalStep("AlphaManualApprovalStep", {
           comment: "Alpha Manual Approval Step"
         }));
@@ -84,6 +104,7 @@ export class PipelineStack extends Stack {
         const betaStage = pipeline.addStage(betaEnv);
       } else {
         //// All other entries are production
+        // TODO uncomment if you release your final app to production
         //let prodEnv = new PipelineAppStage(this, ["ProdEnv", STACK_CONFIGS[index].account, STACK_CONFIGS[index].region].join("_"),
         //  {
         //    env: {

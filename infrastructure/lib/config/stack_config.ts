@@ -32,15 +32,52 @@ export interface IStackConfig {
     readonly region: string;
 }
 
+export enum StageType {
+    ALPHA = "ALPHA",
+    BETA = "BETA",
+    PROD = "PROD",
+}
+
+export class AppStackConfig extends StackConfig {
+    readonly #stageType: StageType;
+
+    constructor(accountId: string, awsRegion: string, stageType: StageType, stackName?: string | null) {
+        super(accountId, awsRegion, stackName)
+        this.#stageType = stageType;
+    }
+    
+    get stageType() {
+        return this.#stageType;
+    }
+
+    isAlpha() {
+        return this.#stageType == StageType.ALPHA;
+    }
+
+    isBeta() {
+        return this.#stageType == StageType.BETA;
+    }
+    
+    isProd() {
+        return this.#stageType == StageType.PROD;
+    }
+}
+
 export const DEFAULT_STACK_ACCOUNT = "YOUR_ACCOUNT_HERE";
-export const DEFAULT_STACK_REGION = "us-west-2";
-export const BETA_STACK_REGION = "us-east-1";
+export const DEFAULT_STACK_REGION = "us-west-2"; // OREGON
+export const ALPHA_STACK_REGION = "us-east-1"; // OHIO
+export const BETA_STACK_REGION = "us-east-2"; // VIRGINIA
+// export const PROD_STACK_REGION = "us-west-2";
 
 // Stack config used to create pipeline
 export const PIPELINE_STACK_CONFIG: StackConfig = new StackConfig(DEFAULT_STACK_ACCOUNT, DEFAULT_STACK_REGION);
 
 // Stacks configs used to deploy resources regionally via a CodePipeline
-export const STACK_CONFIGS: StackConfig[] = [
-    PIPELINE_STACK_CONFIG,
-  new StackConfig(DEFAULT_STACK_ACCOUNT, BETA_STACK_REGION)
+export const STACK_CONFIGS: AppStackConfig[] = [
+    // Alpha stack
+    new AppStackConfig(DEFAULT_STACK_ACCOUNT, ALPHA_STACK_REGION, StageType.ALPHA),
+    // Beta stack
+    new AppStackConfig(DEFAULT_STACK_ACCOUNT, BETA_STACK_REGION, StageType.BETA),
+    // Prod stack (or stacks if you want to create more than 1)
+    // new AppStackConfig(DEFAULT_STACK_ACCOUNT, PROD_STACK_REGION, StageType.PROD, BASE_WEB_DOMAIN)
 ];

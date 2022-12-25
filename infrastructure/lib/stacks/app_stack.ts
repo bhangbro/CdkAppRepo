@@ -1,36 +1,103 @@
 import * as cdk from 'aws-cdk-lib';
-import { aws_codecommit, Stack, StackProps } from 'aws-cdk-lib';
+import {Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
-import { Function, Code, InlineCode, Runtime, CfnFunction } from 'aws-cdk-lib/aws-lambda';
-import { Artifact } from 'aws-cdk-lib/aws-codepipeline';
-import { Bucket } from 'aws-cdk-lib/aws-s3';
+import { Function, Code, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { APP_NAME, EXPORT_CODEBUILD_S3_KEY } from '../constants';
+import { API_LAMBDA_ENV_VARIABLE_CONFIGS, LambdaEnvVariableConfig } from '../config/lambda_config';
+import { AppStackConfig } from '../config/stack_config';
 
 interface AppStackProps extends cdk.StageProps {
-  readonly buildArtifact: Artifact;
-  readonly artifactsBucket: Bucket;
+  stackConfig: AppStackConfig
 }
 
 export class AppStack extends Stack {
   constructor(scope: Construct, id: string, props: AppStackProps) {
     super(scope, id, props);
+    const stageStackLambdaEnvConfig = API_LAMBDA_ENV_VARIABLE_CONFIGS[props.stackConfig.stageType];
 
     new sqs.Queue(this, 'AppQueue', {
       queueName: "AppQueue"
     });
 
-    new Function(this, 'LambdaFunction', {
-      runtime: Runtime.NODEJS_12_X,
-      handler: 'index.handler',
-      code: new InlineCode('exports.handler = _ => console.log("Hello, CDK");')
-    });
-
     const importedCodeBuildS3ObjectKey = cdk.Fn.importValue(EXPORT_CODEBUILD_S3_KEY);
-    const lambda = new Function(this, `${APP_NAME}ApiLambdaFunction`, {
+
+    // Get the build artifacts from software/lambda-js from the CodePipeline object in /lib/stacks/pipeline_stack.ts 
+    let lambdaJsCode = Code.fromAsset("../software/lambda-js/dist/lambda.zip");
+    // Get the build artifacts from software/lambda from the CodePipeline object in /lib/stacks/pipeline_stack.ts
+    let lambdaJavaCode = Code.fromAsset("../software/lambda/app/build/libs/app-1.0.0-lambda.jar");
+
+
+    // This uses the build artifacts software/lambda-js to create a JavaScript Lambda
+    // NOTE: you can create another Lambda with the same code if you define a separate handler in the lambda-js code
+    const lambdaJs1 = this.getJSLambdaFn(
+      'MY_FIRST_JAVASCRIPT_LAMBDA',
+      'src/index.testHandler',
+      lambdaJsCode,
+      stageStackLambdaEnvConfig
+    );
+    const lambdaJs2 = this.getJSLambdaFn(
+      'MY_SECOND_JAVASCRIPT_LAMBDA',
+      'src/index.anotherTestHandler',
+      lambdaJsCode,
+      stageStackLambdaEnvConfig
+    );
+
+    // This uses the build artifacts software/lambda from the CodePipeline object in /lib/stacks/pipeline_stack.ts 
+    //  to create a Kotlin/Java Lambda (Code is in Kotlin, compiled into Java bytecode, so usable by Java Lambda)
+    const lambdaJava = this.getJavaLambdaFn(
+      'MY_FIRST_JAVA_LAMBDA',
+      'io.mycdkapp.frameworks.lambda.handlers.TestHandler::handleRequest',
+      lambdaJavaCode,
+      stageStackLambdaEnvConfig
+    );
+  }
+
+  getJSLambdaFn(
+    name: string,
+    handler: string,
+    apiCode: Code,
+    lambdaEnvConfig: LambdaEnvVariableConfig,
+    memorySize?: number | undefined,
+    timeoutSeconds?: number | undefined,
+  ): Function {
+    return new Function(this, `${APP_NAME}${name}`, {
+      functionName: name,
+      memorySize: memorySize || 384,
+      timeout: cdk.Duration.seconds(timeoutSeconds || 10),
+      runtime: Runtime.NODEJS_14_X,
+      handler: handler,
+      code: apiCode,
+      environment: {
+        // Each environment variable you defined in LambdaEnvVariableConfig must be converted to a string and passed here into Lambda function
+        APP_NAME: lambdaEnvConfig.appName,
+        STAGE: lambdaEnvConfig.stage,
+        LOG_LEVEL: lambdaEnvConfig.logLevel
+      }
+    });
+  }
+
+  getJavaLambdaFn(
+    name: string,
+    handler: string,
+    apiCode: Code,
+    lambdaEnvConfig: LambdaEnvVariableConfig,
+    memorySize?: number | undefined,
+    timeoutSeconds?: number | undefined,
+  ): Function {
+    return new Function(this, `${APP_NAME}${name}`, {
+      functionName: name,
+      memorySize: memorySize || 512,  // Higher memory size (RAM) because the JVM uses more resources than NodeJS
+      timeout: cdk.Duration.seconds(timeoutSeconds || 15), // Longer timeout than NodeJS because the JVM has a long startup time
       runtime: Runtime.JAVA_11,
-      handler: 'com.package.lambda.handlers.DefaultHandler::handleRequest', // TODO replace with your handler
-      code: Code.fromBucket(props.artifactsBucket, importedCodeBuildS3ObjectKey)
-    })
+      handler: handler,
+      code: apiCode,
+      environment: {
+        // Each environment variable you defined in LambdaEnvVariableConfig must be converted to a string and passed here into Lambda function
+        APP_NAME: lambdaEnvConfig.appName,
+        STAGE: lambdaEnvConfig.stage,
+        LOG_LEVEL: lambdaEnvConfig.logLevel
+      }
+    });
   }
 }

@@ -1,0 +1,4 @@
+`npm run zip`
+
+
+    "build": "rm -rf dist && mkdir dist && esbuild src/**.ts src/**/*.ts --bundle --minify --sourcemap --platform=node --target=node16 --outdir=dist/",

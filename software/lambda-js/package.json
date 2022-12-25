@@ -1,0 +1,26 @@
+{
+  "name": "api-lambda",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "postinstall": "npm rebuild grpc --target=14.17.3 --target_arch=x64 --target_platform=linux --target_libc=glibc",
+    "start": "ts-node src/index.ts",
+    "build": "rm -rf dist/ && node build.js",
+    "postbuild": "cp -r node_modules/grpc/src/* dist/src/ && cp -r node_modules/grpc/deps dist/src && cp node_modules/grpc/package.json dist/ && cd dist && zip -r lambda.zip *",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/aws-lambda": "^8.10.102",
+    "aws-sdk": "^2.1198.0",
+    "esbuild": "^0.15.16",
+    "json": "^11.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.7.4"
+  },
+  "devDependencies": {
+  }
+}
