@@ -17,6 +17,8 @@ echo "Deploy CDK pipeline to create intial CodeCommit Repository"
 cdk deploy CdkPipelineStack 
 
 echo "Set project origin to CodeCommit in the region of the CodePipeline"
+cd ../
+aws codecommit create-repository CdkAppRepo
 git remote add origin https://git-codecommit.us-west-2.amazonaws.com/v1/repos/CdkAppRepo
 
 echo "Upload project to CodeCommit Repo"
