@@ -3,7 +3,7 @@ import {Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Function, Code, Runtime } from 'aws-cdk-lib/aws-lambda';
-import { APP_NAME, EXPORT_CODEBUILD_S3_KEY } from '../constants';
+import { APP_NAME } from '../constants';
 import { API_LAMBDA_ENV_VARIABLE_CONFIGS, LambdaEnvVariableConfig } from '../config/lambda_config';
 import { AppStackConfig } from '../config/stack_config';
 
@@ -20,8 +20,6 @@ export class AppStack extends Stack {
       queueName: "AppQueue"
     });
 
-    const importedCodeBuildS3ObjectKey = cdk.Fn.importValue(EXPORT_CODEBUILD_S3_KEY);
-
     // Get the build artifacts from software/lambda-js from the CodePipeline object in /lib/stacks/pipeline_stack.ts 
     let lambdaJsCode = Code.fromAsset("../software/lambda-js/dist/lambda.zip");
     // Get the build artifacts from software/lambda from the CodePipeline object in /lib/stacks/pipeline_stack.ts
@@ -32,13 +30,13 @@ export class AppStack extends Stack {
     // NOTE: you can create another Lambda with the same code if you define a separate handler in the lambda-js code
     const lambdaJs1 = this.getJSLambdaFn(
       'MY_FIRST_JAVASCRIPT_LAMBDA',
-      'src/index.testHandler',
+      'src/index.testHandler', // First handler with its own logic
       lambdaJsCode,
       stageStackLambdaEnvConfig
     );
     const lambdaJs2 = this.getJSLambdaFn(
       'MY_SECOND_JAVASCRIPT_LAMBDA',
-      'src/index.anotherTestHandler',
+      'src/index.anotherTestHandler', // Second handler with its own logic in the same code
       lambdaJsCode,
       stageStackLambdaEnvConfig
     );

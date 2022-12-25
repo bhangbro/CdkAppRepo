@@ -1,16 +1,12 @@
 import { Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-// import { CdkPipeline, SimpleSynthAction } from 'aws-cdk-lib/pipelines';
 import * as codecommit from 'aws-cdk-lib/aws-codecommit';
-import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
-import * as codepipeline_actions from 'aws-cdk-lib/aws-codepipeline-actions';
 import { STACK_CONFIGS } from '../config/stack_config';
 import { APP_NAME, CODE_COMMIT_DEPLOY_BRANCH_NAME, CODE_COMMIT_REPO_NAME } from '../constants';
 import { PipelineAppStage } from '../stages/pipeline_app_stage';
+import { PipelineGlobalAppStage } from '../stages/pipeline_global_app_stage';
 import { CodeBuildStep, CodePipeline, CodePipelineSource, ManualApprovalStep } from 'aws-cdk-lib/pipelines';
-import { Artifact } from 'aws-cdk-lib/aws-codepipeline';
-import { SourceStage } from '../stages/source_stage';
-import { CodeBuildStage } from '../stages/code_build_stage';
+import { BuildSpec } from 'aws-cdk-lib/aws-codebuild';
 
 export class PipelineStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -26,11 +22,14 @@ export class PipelineStack extends Stack {
     // The CodePipeline is used to build official versions of you software, and then do things like:
     //  - publish the library
     //  - deploy apps to AWS
-    //  - deploy resources to AWS (may cost money)
+    //  - deploy resources to AWS (may cost money depending on what you create)
     // These are all configurable by editting this code using the AWS Cloud Development Kit (https://docs.aws.amazon.com/cdk/v2/guide/home.html)
     // Data structures + resources: https://docs.aws.amazon.com/cdk/api/v2/docs/aws-construct-library.html
-    const pipeline = new CodePipeline(this, `${APP_NAME}ApiPipeline`, {
-      pipelineName: `${APP_NAME}ApiPipeline`,
+    const pipeline = new CodePipeline(this, `${APP_NAME}Pipeline`, {
+      pipelineName: `${APP_NAME}Pipeline`,
+      codeBuildDefaults: {
+        partialBuildSpec: this.getBuildSpecContent()
+      },
       synth: new CodeBuildStep('Synth', {
         input: CodePipelineSource.codeCommit(appRepo, CODE_COMMIT_DEPLOY_BRANCH_NAME),
         installCommands: [
@@ -52,44 +51,34 @@ export class PipelineStack extends Stack {
         ]
       })
     });
-
-    // Source Stage
-    const sourceArtifact = new Artifact();
-    const sourceStage = new SourceStage(scope, "SourceStage", {
-      sourceArtifact: sourceArtifact
-    })
-    pipeline.addStage(sourceStage);
-
-    // Code Build Stage
-    const buildStage = new CodeBuildStage(scope, "CodeBuildStage", {
-      sourceArtifact: sourceArtifact,
-    })
-    pipeline.addStage(buildStage);
+    // Global Stage
+    let globalEnv = new PipelineGlobalAppStage(this, "GlobalEnv", {});
+    const globalStage = pipeline.addStage(globalEnv);
+    // TODO add back the approval step when ready to deploy to PROD
+    // globalStage.addPost(new ManualApprovalStep("GlobalManualApprovalStep", {
+    //   comment: "Global Manual Approval Step"
+    // }));
     
     // App Stages
     for (let index in STACK_CONFIGS) {
-      if (index == "0") {
+      let stackConfig = STACK_CONFIGS[index];
+      if (stackConfig.isAlpha()) {
         // First entry is Alpha stage
-        // Alpha stage is typically used for internal developer testing (private network).
-        //   In this case, it is on a public network because a private network cost additional to run on AWS
-        // The Alpha stage deploys all the resources defined in PipelineAppStage to the AWS account + region you define in the first STACK_CONFIG
         let alphaEnv = new PipelineAppStage(this, "AlphaEnv",
           {
             env: {
               account: STACK_CONFIGS[index].account,
               region: STACK_CONFIGS[index].region
             },
-            buildArtifact: buildStage.stack.buildArtifact,
-            artifactsBucket: buildStage.stack.artifactsBucket
+            stackConfig: stackConfig
           }
         );
         const alphaStage = pipeline.addStage(alphaEnv);
-      
-
-        alphaStage.addPost(new ManualApprovalStep("AlphaManualApprovalStep", {
-          comment: "Alpha Manual Approval Step"
-        }));
-      } else if (index == "1") {
+        // TODO uncomment approval step when ready to deploy to BETA
+        // alphaStage.addPost(new ManualApprovalStep("AlphaManualApprovalStep", {
+        //   comment: "Alpha Manual Approval Step"
+        // }));
+      } else if (stackConfig.isBeta()) {
         // Second entry is Beta stage
         let betaEnv = new PipelineAppStage(this, "BetaEnv",
           {
@@ -97,14 +86,12 @@ export class PipelineStack extends Stack {
               account: STACK_CONFIGS[index].account,
               region: STACK_CONFIGS[index].region
             },
-            buildArtifact: buildStage.stack.buildArtifact,
-            artifactsBucket: buildStage.stack.artifactsBucket
+            stackConfig: stackConfig
           }
         );
         const betaStage = pipeline.addStage(betaEnv);
-      } else {
+      } else if (stackConfig.isProd()) {
         //// All other entries are production
-        // TODO uncomment if you release your final app to production
         //let prodEnv = new PipelineAppStage(this, ["ProdEnv", STACK_CONFIGS[index].account, STACK_CONFIGS[index].region].join("_"),
         //  {
         //    env: {
@@ -114,7 +101,33 @@ export class PipelineStack extends Stack {
         //  }
         //);
         //const prodStage = pipeline.addStage(prodEnv);
+      } else {
+        throw new TypeError("Unsupported stageType");
       }
     }
+  }
+
+  private getBuildSpecContent = () => {
+    return BuildSpec.fromObject({
+        version: '0.2',
+        phases: {
+            install: {
+                'runtime-versions': {
+                  java: 'corretto11',
+                  nodejs: '14.x' // TODO upgrade to 16 when available
+                },
+                commands: [
+                ]
+            },
+            pre_build: {
+                commands: [
+                ]
+            },
+            build: {
+                commands: [
+                ]
+            }
+        },
+    });
   }
 }

@@ -1,6 +1,7 @@
 #! /bin/sh
 
-echo "Install dependencies from package.json"
+echo "Install dependencies from infrastucture/package.json"
+cd infrastructure/
 npm install
 
 echo "Compile Typescript"
