@@ -1,14 +1,16 @@
 #! /bin/sh
 
-echo "Build NodeJS lambda"
 cd software/
-cd lambda-js
+
+echo "Build NodeJS lambda"
+cd lambda-js/
 npm run build
 
-echo "Build kotlin lambda"
+echo "Build Kotlin lambda"
 cd ../lambda
 ./gradlew clean build --refresh-dependencies --parallel
 
+echo "Go back to base dir"
 cd ../
 
 echo "Install dependencies from infrastucture/package.json"
