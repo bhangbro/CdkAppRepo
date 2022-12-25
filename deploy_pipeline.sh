@@ -1,5 +1,13 @@
 #! /bin/sh
 
+
+cd software/
+cd lambda-js
+npm run build
+
+cd ../lambda
+./gradlew clean build --refresh-dependencies --parallel
+
 echo "Install dependencies from infrastucture/package.json"
 cd infrastructure/
 npm install
