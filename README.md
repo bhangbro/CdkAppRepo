@@ -32,24 +32,26 @@ The AWS Cloud Development Kit is a programatic way to define CloudFormation Reso
 
 ## CDK Setup (project in infrastucture/)
 1. Ensure you have installed all the prerequisites mentioned above
-2. Go to `lib/config/stack_config.ts`
-3. Set `DEFAULT_STACK_ACCOUNT` to your 12 digit AWS account number
-4. Set `DEFAULT_STACK_REGION` to the AWS region to deploy the root pipeline
+1. Go to `lib/config/stack_config.ts`
+1. Set `DEFAULT_STACK_ACCOUNT` to your 12 digit AWS account number
+1. Set `DEFAULT_STACK_REGION` to the AWS region to deploy the root pipeline
 	- This region will be where the CodePipeline/CDKPipeline will be managed, and where the Alpha stage will be hosted
     - **us-west-2** is selected by default since it is a cheap region to host
-3. Set `ALPHA_STACK_REGION` to the AWS region to deploy the ALPHA stage of the pipeline
+1. Set `ALPHA_STACK_REGION` to the AWS region to deploy the ALPHA stage of the pipeline
 	- **MUST BE DIFFERENT THAN VALUE IN `DEFAULT_STACK_REGION` to avoid duplicate resources**
 	- **us-east-1** set by default
-5. Set `BETA_STACK_REGION` to the AWS region to deploy the BETA stage of the pipeline
+1. Set `BETA_STACK_REGION` to the AWS region to deploy the BETA stage of the pipeline
 	- **MUST BE DIFFERENT THAN VALUE IN `DEFAULT_STACK_REGION` and `ALPHA_STACK_REGION` to avoid duplicate resources**
 	- **us-east-2** set by default
-6. Deploy pipeline
+1. If this is the first time deploying, you need to clear your git remote
+    - run `./clear_git_remote.sh`
+1. Deploy pipeline
     - On Unix machines, run `./deploy_pipeline.sh`
     - On Windows machines, run `./deploy_pipeline.bat` (no longer maintained)
     - These scripts do the following:
         - Create a Git repo in CodeCommit
         - Build and synthesize the CDK resources
-        - Crea
+        - Create
 
 ## Making Changes
 1. After the `deploy_pipeline` script has been executed, your workspace should be linked to a CodeCommit repository, **CdkAppRepo**, or whatever repo you reconfigure this to be called
@@ -61,13 +63,14 @@ The AWS Cloud Development Kit is a programatic way to define CloudFormation Reso
 2. `npm install` will install any new dependencies defined in `package.json`
 
 ## Special Files
-* `bin/cdk_app.ts` Root file of the CDK app initialization
-* `lib/constants.ts` File with constants used in the package
-  * `CODE_COMMIT_REPO_NAME` the name of the repository you want to store in CodeCommit
-    * **NOTE: Changes to this will require changes to the `deploy_pipeline` scripts**
-* `lib/config/stack_config.ts` File with configurations for Pipeline stages
-  * `STACK_CONFIGS` in `lib/config/stack_config.ts` define all AWS accounts/regions for stages in the CDKPipeline
-* `deploy_pipeline.bat` is executable to deploy CDK stack(s)
-* `test/` contains all the tests for the .ts files defining the stacks
-* `package.json` Where all the application dependencies are defined
+* `deploy_pipeline.sh` is executable to deploy CDK stack(s)
+* `infrastructure/`
+  * `bin/cdk_app.ts` Root file of the CDK app initialization
+  * `lib/constants.ts` File with constants used in the package
+    * `CODE_COMMIT_REPO_NAME` the name of the repository you want to store in CodeCommit
+      * **NOTE: Changes to this will require changes to the `deploy_pipeline` scripts**
+  * `lib/config/stack_config.ts` File with configurations for Pipeline stages
+    * `STACK_CONFIGS` in `lib/config/stack_config.ts` define all AWS accounts/regions for stages in the CDKPipeline
+  * `test/` contains all the tests for the .ts files defining the stacks
+  * `package.json` Where all the application dependencies are defined
 
